@@ -12,7 +12,8 @@ import {
   ShaderMaterial,
   UniformsUtils,
   Texture,
-  NearestFilter
+  NearestFilter,
+  MeshNormalMaterial
 } from "three";
 
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
@@ -35,7 +36,7 @@ export class MyScene {
 
   constructor (renderer) {
     this.scene = new Scene();
-    this.scene.background = new Color(0xAAAAAA);
+    // this.scene.background = new Color(0xAAAAAA);
 
     this.camera = new PerspectiveCamera(
       75, window.innerWidth / window.innerHeight, 0.1, 1000
@@ -97,6 +98,7 @@ export class MyScene {
       vertexShader: blank,
       fragmentShader: toon,
     });
+    this.toonMaterial = new MeshNormalMaterial();
   }
 
   public update() {

@@ -28,9 +28,9 @@ export class EngineComponent implements OnInit {
     this.engServ.init(this.rendererCanvas);
 
     const baseScene = new MyScene(this.engServ.R);
-    const postfx    = new PostFx (this.engServ.R, .25);
+    const postfx    = new PostFx (this.engServ.R, palette, .2);
 
-    baseScene.setPalette(palette);
+    // baseScene.setPalette(palette);
     baseScene.init();
 
     this.engServ.resize.subscribe(([resolution]) => {

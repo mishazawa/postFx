@@ -10,24 +10,30 @@ import {
     RawShaderMaterial,
     RGBAFormat,
     Scene,
+    Texture,
     Vector2,
     WebGLRenderer,
     WebGLRenderTarget
 } from 'three';
 
-import frag from 'raw-loader!./shaders/postfx.frag';
 import vert from 'raw-loader!./shaders/postfx.vert';
+import fragToon  from 'raw-loader!./shaders/toonPFX.frag';
+import fragScale from 'raw-loader!./shaders/scalePFX.frag';
 
 export class PostFx {
   private renderer: WebGLRenderer;
-  private scene: Scene | Object3D<Event>;
+  private sceneToon: Scene | Object3D<Event>;
+  private sceneScale: Scene | Object3D<Event>;
   private dummyCamera: Camera | OrthographicCamera;
-  private target: WebGLRenderTarget;
-  private material: RawShaderMaterial;
+  private targetToon: WebGLRenderTarget;
+  private targetScale: WebGLRenderTarget;
+  private materialToon: RawShaderMaterial;
+  private materialScale: RawShaderMaterial;
 
-  constructor (renderer: WebGLRenderer, scale: number = .5) {
+  constructor (renderer: WebGLRenderer, gradient: Texture, scale: number = .5) {
     this.renderer = renderer;
-    this.scene = new Scene();
+    this.sceneToon  = new Scene();
+    this.sceneScale = new Scene();
 
     // three.js for .render() wants a camera, even if we're not using it :(
     this.dummyCamera = new OrthographicCamera();
@@ -48,7 +54,7 @@ export class PostFx {
 
     const textureRes = resolution.clone().multiplyScalar(multiplier);
 
-    this.target = new WebGLRenderTarget(textureRes.x, textureRes.y, {
+    this.targetToon = new WebGLRenderTarget(textureRes.x, textureRes.y, {
       format: RGBAFormat,
       stencilBuffer: false,
       depthBuffer: true,
@@ -56,30 +62,60 @@ export class PostFx {
       minFilter: NearestFilter,
     });
 
-    this.material = new RawShaderMaterial({
-      fragmentShader: frag,
+
+    this.targetScale = new WebGLRenderTarget(textureRes.x, textureRes.y, {
+      format: RGBAFormat,
+      stencilBuffer: false,
+      depthBuffer: false,
+      magFilter: NearestFilter,
+      minFilter: NearestFilter,
+    });
+
+    gradient.magFilter = NearestFilter;
+    gradient.minFilter = NearestFilter;
+
+    this.materialToon = new RawShaderMaterial({
+      fragmentShader: fragToon,
       vertexShader: vert,
       uniforms: {
-        uScene: { value: this.target.texture },
-        uResolution: { value: resolution },
-        uMultiplier: { value: multiplier },
+        uScene:       { value: this.targetToon.texture },
+        uGradientMap: { value: gradient },
+        uResolution:  { value: textureRes },
+        uMultiplier:  { value: multiplier },
       },
     });
 
-    const triangle = new Mesh(geometry, this.material);
+    this.materialScale = new RawShaderMaterial({
+      fragmentShader: fragScale,
+      vertexShader: vert,
+      uniforms: {
+        uScene:       { value: this.targetScale.texture },
+        uGradientMap: { value: gradient },
+        uResolution:  { value: resolution },
+        uMultiplier:  { value: multiplier },
+      },
+    });
+
+    const triangleToon = new Mesh(geometry, this.materialToon);
+    const triangleScale = new Mesh(geometry, this.materialScale);
     // Our triangle will be always on screen, so avoid frustum culling checking
-    triangle.frustumCulled = false;
-    this.scene.add(triangle);
+    triangleToon.frustumCulled = false;
+    triangleScale.frustumCulled = false;
+
+    this.sceneToon.add(triangleToon);
+    this.sceneScale.add(triangleScale);
   }
 
   public onResize (res: Vector2) {
-    this.material.uniforms['uResolution'].value = res;
+    this.materialScale.uniforms['uResolution'].value = res;
   }
 
   render(scene, camera) {
-    this.renderer.setRenderTarget(this.target);
+    this.renderer.setRenderTarget(this.targetToon);
     this.renderer.render(scene, camera);
+    this.renderer.setRenderTarget(this.targetScale);
+    this.renderer.render(this.sceneToon, this.dummyCamera);
     this.renderer.setRenderTarget(null);
-    this.renderer.render(this.scene, this.dummyCamera);
+    this.renderer.render(this.sceneScale, this.dummyCamera);
   }
 }

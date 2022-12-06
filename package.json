@@ -10,7 +10,8 @@
     "build:both": "npm run build && npm run build:prod",
     "test": "ng test",
     "lint": "ng lint",
-    "e2e": "ng e2e"
+    "e2e": "ng e2e",
+    "ci": "rm -rf node_modules && yarn install --immutable"
   },
   "private": true,
   "dependencies": {
