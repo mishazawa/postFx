@@ -2,11 +2,12 @@ import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { EngineService } from './engine.service';
 import { LoaderService } from './loader.service';
 
-import { Texture } from 'three';
+import { Object3D, Texture } from 'three';
 import { PostFx } from './PostFx';
 import { MyScene } from './MyScene';
 
 const URL_TOON_PALETTE = "../assets/custom.tga";
+const URL_TREE_SCENE   = "../assets/tree_scene.glb";
 
 @Component({
   selector: 'app-engine',
@@ -24,6 +25,7 @@ export class EngineComponent implements OnInit {
 
   public async ngOnInit() {
     const palette = await this.loadServ.loadTga(URL_TOON_PALETTE) as Texture;
+    const treeScene = await this.loadServ.loadGlb(URL_TREE_SCENE) as Object3D;
 
     this.engServ.init(this.rendererCanvas);
 
@@ -32,6 +34,7 @@ export class EngineComponent implements OnInit {
 
     // baseScene.setPalette(palette);
     baseScene.init();
+    baseScene.createGeometry(treeScene['scene'])
 
     this.engServ.resize.subscribe(([resolution]) => {
       postfx.onResize(resolution)

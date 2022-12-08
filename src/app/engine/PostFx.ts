@@ -66,7 +66,7 @@ export class PostFx {
     this.targetScale = new WebGLRenderTarget(textureRes.x, textureRes.y, {
       format: RGBAFormat,
       stencilBuffer: false,
-      depthBuffer: false,
+      depthBuffer: true,
       magFilter: NearestFilter,
       minFilter: NearestFilter,
     });

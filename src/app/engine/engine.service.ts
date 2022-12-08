@@ -50,6 +50,7 @@ export class EngineService implements OnDestroy {
       antialias: true // smooth edges
     });
 
+    this.renderer.shadowMap.enabled = true;
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
