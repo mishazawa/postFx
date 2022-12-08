@@ -1,42 +1,44 @@
 import {
-  Scene,
-  PerspectiveCamera,
-  Vector2,
-  DirectionalLight,
-  Object3D,
-  Vector3,
-  Mesh,
-  Texture,
-  NearestFilter,
-  Group,
-  FogExp2,
-  Color,
-  MeshToonMaterial,
-  Quaternion,
-  MeshDistanceMaterial,
-  MeshMatcapMaterial,
-  CameraHelper
+    AnimationAction,
+    AnimationClip,
+    AnimationMixer,
+    BufferAttribute, Color, DirectionalLight, FogExp2, Group, LoopOnce, Mesh, MeshToonMaterial, NearestFilter, Object3D, PerspectiveCamera, Quaternion, Scene, Texture, Vector2, Vector3
 } from "three";
 
-import {OrbitControls} from "three/examples/jsm/controls/OrbitControls";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils';
+import { setInterval } from "timers";
 
 const CAMERA_POS      = new Vector3(-3.213139322477767, 3.593942240067361, 3.7158564076995075);
 const CAMERA_ROT      = new Quaternion(-0.08783263310293568, -0.5167853852560961, -0.053405678759713165, 0.8499212478954318)
 const LIGHT_DIRECTION = new Vector3(5, 0, 2);
 
 const CAMERA_SHADOW_FRUSTUM = 6;
+const ENABLE_TIME = 1000;
+const THRESHOLD = .25;
+
+class Bird extends Mesh {
+  public mixer: AnimationMixer;
+  public clips: AnimationClip[];
+
+  public currentAction: AnimationAction;
+}
 
 export class MyScene {
   public scene;
   public camera;
 
   private resolution;
-  private cube;
   private light;
   private target;
   private toonTexture;
   private controls;
   private toonMaterial;
+
+  private birds: Bird[] = [];
+  private birdsEnableInterval;
+  private rope;
 
   constructor (renderer) {
     this.scene = new Scene();
@@ -55,6 +57,7 @@ export class MyScene {
     this.resolution = new Vector2();
     renderer.getDrawingBufferSize(this.resolution);
     // this.controls = new OrbitControls(this.camera, renderer.domElement);
+
   }
 
   public init() {
@@ -87,39 +90,76 @@ export class MyScene {
     // this.scene.add( new CameraHelper( this.light.shadow.camera ) );
   }
 
-  public createGeometry(scene: Group) {
-    const [a, b, c] = scene.children[0].children;
+  private createMaterials () {
+    this.toonMaterial = new MeshToonMaterial();
+  }
+
+  public createGeometry(scene: Group, birdGlb: Object3D) {
+    const [a, b, c, p] = scene.children[0].children;
 
     const tree   = a as Mesh;
     const ground = b as Mesh;
     const rope   = c as Mesh;
 
+    const points = p as Mesh;
+
+    const bird = birdGlb['scene'].children[0] as Mesh;
+
     tree.material   = this.toonMaterial.clone();
     ground.material = this.toonMaterial.clone();
     rope.material   = this.toonMaterial.clone();
+    bird.material   = this.toonMaterial.clone();
 
     tree.material  ['color'] = new Color(0x735F32);
     ground.material['color'] = new Color(0x282A3A);
-    // ground.material['color'] = new Color(0xAAAAAA);
     rope.material  ['color'] = new Color(0xC69749);
+    bird.material  ['color'] = new Color(0x222222);
 
     tree.castShadow = true;
     rope.castShadow = true;
-    // ground.castShadow = true;
+    bird.castShadow = true;
 
     ground.receiveShadow = true;
 
-    this.scene.add(scene);
+    rope.visible = false;
+
+    this.rope = rope;
+
+    const ANIMATION_NAME = "ScrubAnimationm";
+    const clips = birdGlb.animations;
+    const clip = AnimationClip.findByName( clips, ANIMATION_NAME );
+
+    const geo = points.geometry.attributes['position'] as BufferAttribute;
+
+    const pts = Array.from(Array(geo.count)).map((_, i) => {
+      const position = new Vector3().fromBufferAttribute(geo, i).toArray();
+      const newBird = skeletonClone(bird) as Bird;
+      newBird.scale.multiplyScalar(.1);
+      newBird.position.set(...position);
+
+      newBird.mixer = new AnimationMixer(newBird);
+      newBird.currentAction = newBird.mixer.clipAction(clip);
+      newBird.currentAction.clampWhenFinished = true;
+      newBird.currentAction.setLoop(LoopOnce, 1);
+      newBird.currentAction.halt(0);
+      newBird.currentAction.play();
+
+      this.birds.push(newBird);
+    })
+
+
+    this.scene.add(tree);
+    this.scene.add(ground);
+    this.scene.add(rope);
+
+    this.birds.forEach(b => this.scene.add(b));
   }
 
-  private createMaterials () {
-    this.toonMaterial = new MeshToonMaterial();
-  }
 
-  public update() {
+  public update(dt) {
     // this.controls.update();
-    // this.cube.rotation.x += 0.001;
-    // this.cube.rotation.y += 0.01;
+    this.birds.forEach(b => b.mixer.update(dt));
+    this.shakeCameraSlightly(dt);
   }
 
   public setPalette(tex: Texture) {
@@ -131,5 +171,29 @@ export class MyScene {
   public onResize (res) {
     this.camera.aspect = res.x / res.y;
     this.camera.updateProjectionMatrix()
+  }
+
+  public randomEnableBird() {
+    this.birdsEnableInterval = setInterval(() => {
+      const prob = Math.random();
+      if (prob < THRESHOLD) {
+        const b = this.birds[Math.floor(Math.random()*this.birds.length)];
+
+        const isRunning = b.currentAction.isRunning();
+
+        if (isRunning) return;
+
+
+        b.currentAction.reset().play();
+      }
+    }, ENABLE_TIME)
+  }
+
+  public toggleRope() {
+    this.rope.visible = !this.rope.visible;
+  }
+
+  public shakeCameraSlightly(dt) {
+    // this.camera.position.add(v)
   }
 }
